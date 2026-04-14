@@ -43,9 +43,9 @@ def test_model():
 
 
 def test_train_helpers():
-    from train import train_one_epoch, run_eval, train_model, build_metrics, save_metrics
+    from train import train_one_epoch, predict, train_model, build_metrics, save_metrics
     assert callable(train_one_epoch)
-    assert callable(run_eval)
+    assert callable(predict)
     assert callable(train_model)
     assert callable(build_metrics)
     assert callable(save_metrics)

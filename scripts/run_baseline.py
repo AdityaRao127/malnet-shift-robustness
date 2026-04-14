@@ -17,7 +17,7 @@ from sklearn.metrics import confusion_matrix
 from data_loader import load_malnet_splits, make_loaders
 from features import make_pre_transform
 from model import BaselineGCN
-from train import build_metrics, run_eval, save_metrics, train_model
+from train import build_metrics, predict, save_metrics, train_model
 
 
 # ---- config ----
@@ -43,7 +43,7 @@ def get_class_names(data_dir):
     return [name for name, _ in sorted(y_map.items(), key=lambda x: x[1])]
 
 
-def save_confusion_matrix(test_labels, test_preds, class_names, output_dir):
+def save_confusion_matrix(test_labels, test_preds, class_names, output_dir, prefix="baseline"):
     cm = confusion_matrix(test_labels, test_preds)
     fig, ax = plt.subplots(figsize=(7, 6))
     im = ax.imshow(cm, interpolation="nearest", cmap="Blues")
@@ -61,13 +61,13 @@ def save_confusion_matrix(test_labels, test_preds, class_names, output_dir):
             ax.text(j, i, str(cm[i, j]), ha="center", va="center", color=color, fontsize=12)
     fig.colorbar(im)
     plt.tight_layout()
-    path = os.path.join(output_dir, "confusion_matrix.png")
+    path = os.path.join(output_dir, f"{prefix}_confusion_matrix.png")
     plt.savefig(path, dpi=150)
     plt.close()
     return path
 
 
-def save_training_curve(train_losses, val_accs, output_dir):
+def save_training_curve(train_losses, val_accs, output_dir, prefix="baseline"):
     epochs = range(1, len(train_losses) + 1)
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
     ax1.plot(epochs, train_losses, color="steelblue")
@@ -83,7 +83,7 @@ def save_training_curve(train_losses, val_accs, output_dir):
     ax2.grid(True, alpha=0.3)
 
     plt.tight_layout()
-    path = os.path.join(output_dir, "training_curve.png")
+    path = os.path.join(output_dir, f"{prefix}_training_curve.png")
     plt.savefig(path, dpi=150)
     plt.close()
     return path
@@ -123,7 +123,7 @@ def main():
     print(f"training done in {train_time:.1f}s, best val acc {best_val_acc:.4f}")
 
     print("\ntest set check:")
-    test_preds, test_labels = run_eval(model, test_loader, device)
+    test_preds, test_labels = predict(model, test_loader, device)
 
     training_config = {
         "epochs": EPOCHS,
@@ -138,14 +138,15 @@ def main():
     metrics = build_metrics(test_preds, test_labels, class_names, training_config, best_val_acc, train_time)
 
     os.makedirs(RESULTS_DIR, exist_ok=True)
-    json_path, csv_path = save_metrics(metrics, RESULTS_DIR, prefix="baseline")
+    prefix = "baseline" if FEATURE_TYPE == "degree" else f"baseline_{FEATURE_TYPE}"
+    json_path, csv_path = save_metrics(metrics, RESULTS_DIR, prefix=prefix)
     print("saved", json_path)
     print("saved", csv_path)
 
-    cm_path = save_confusion_matrix(test_labels, test_preds, class_names, RESULTS_DIR)
+    cm_path = save_confusion_matrix(test_labels, test_preds, class_names, RESULTS_DIR, prefix=prefix)
     print("saved", cm_path)
 
-    curve_path = save_training_curve(train_losses, val_accs, RESULTS_DIR)
+    curve_path = save_training_curve(train_losses, val_accs, RESULTS_DIR, prefix=prefix)
     print("saved", curve_path)
 
     print("")

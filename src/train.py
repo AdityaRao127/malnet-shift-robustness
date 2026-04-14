@@ -27,7 +27,7 @@ def train_one_epoch(model, loader, optimizer, device):
 
 
 @torch.no_grad()
-def run_eval(model, loader, device):
+def predict(model, loader, device):
     # returns predicted and true label arrays
     model.eval()
     all_preds, all_labels = [], []
@@ -52,7 +52,7 @@ def train_model(model, train_loader, val_loader, epochs, lr, device, verbose_eve
         loss = train_one_epoch(model, train_loader, optimizer, device)
         train_losses.append(loss)
 
-        preds, labels = run_eval(model, val_loader, device)
+        preds, labels = predict(model, val_loader, device)
         val_acc = accuracy_score(labels, preds)
         val_accs.append(val_acc)
 
