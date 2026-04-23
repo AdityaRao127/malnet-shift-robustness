@@ -166,6 +166,82 @@ def compute_structural_features(data):
     return data
 
 
+def _two_step_neighborhood_size(edge_index, num_nodes, max_dense_nodes=4000):
+    # number of unique 2 hop neighbors per node, falls back to zero on big graphs
+    if edge_index.numel() == 0 or num_nodes > max_dense_nodes:
+        return torch.zeros(num_nodes)
+
+    adj = torch.sparse_coo_tensor(
+        edge_index, torch.ones(edge_index.size(1)), (num_nodes, num_nodes)
+    ).coalesce()
+    a_dense = adj.to_dense()
+    a_sym = ((a_dense + a_dense.t()) > 0).float()
+    a2 = (a_sym @ a_sym > 0).float()
+    return a2.sum(dim=1) - a_sym.diagonal()
+
+
+def _motif_counts(edge_index, num_nodes, max_dense_nodes=4000):
+    # closed triangles and 2-paths through each node (3 dims)
+    if edge_index.numel() == 0 or num_nodes > max_dense_nodes:
+        return torch.zeros(num_nodes, 3)
+
+    adj = torch.sparse_coo_tensor(
+        edge_index, torch.ones(edge_index.size(1)), (num_nodes, num_nodes)
+    ).coalesce()
+    a_dense = adj.to_dense()
+    a_sym = ((a_dense + a_dense.t()) > 0).float()
+    a2 = a_sym @ a_sym
+
+    triangles = (a_sym * a2).sum(dim=1) / 2.0
+    two_paths = a2.sum(dim=1) - a_sym.diagonal()
+    open_paths = two_paths - triangles * 2
+
+    out = torch.zeros(num_nodes, 3)
+    out[:, 0] = triangles
+    out[:, 1] = two_paths
+    out[:, 2] = open_paths.clamp(min=0)
+    return out
+
+
+def _degree_quantile_bins(deg, num_bins=5):
+    # one hot of which quantile bin each node falls into for this graph
+    if deg.numel() == 0:
+        return torch.zeros(0, num_bins)
+    qs = torch.linspace(0, 1, num_bins + 1)
+    edges = torch.quantile(deg, qs[1:-1]) if deg.numel() > 1 else torch.zeros(num_bins - 1)
+    bins = torch.bucketize(deg, edges)
+    one_hot = torch.zeros(deg.size(0), num_bins)
+    one_hot.scatter_(1, bins.unsqueeze(1).clamp(max=num_bins - 1), 1)
+    return one_hot
+
+
+def compute_enriched_features(data):
+    # structural (11) + surrogate metadata block (9) = 20 dims
+    # surrogate metadata: motifs (3) + degree quantile bins (5) + 2 hop nbhd size (1)
+    edge_index = data.edge_index
+    num_nodes = data.num_nodes
+
+    # reuse structural features
+    data = compute_structural_features(data)
+    structural = data.x
+
+    out_deg = degree(edge_index[0], num_nodes=num_nodes, dtype=torch.float) if edge_index.numel() else torch.zeros(num_nodes)
+    motifs = _motif_counts(edge_index, num_nodes)
+    bins = _degree_quantile_bins(out_deg)
+    two_hop = _two_step_neighborhood_size(edge_index, num_nodes).unsqueeze(1)
+
+    semantic = torch.cat([motifs, bins, two_hop], dim=1)  # [num_nodes, 9]
+    data.x = torch.cat([structural, semantic], dim=1)
+    return data
+
+
+# feature group spec for the enriched feature set, used by missingness simulation
+ENRICHED_GROUPS = {
+    "structural": (0, 11),
+    "semantic": (11, 20),
+}
+
+
 def make_pre_transform(feature_type="degree", max_degree=128):
     # factory for pyg pre_transform argument
     if feature_type == "degree":
@@ -174,4 +250,6 @@ def make_pre_transform(feature_type="degree", max_degree=128):
         return compute_ldp_features
     if feature_type == "structural":
         return compute_structural_features
+    if feature_type == "enriched":
+        return compute_enriched_features
     raise ValueError(f"unknown feature type: {feature_type}")
