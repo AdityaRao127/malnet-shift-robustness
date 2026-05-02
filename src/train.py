@@ -70,6 +70,64 @@ def train_model(model, train_loader, val_loader, epochs, lr, device, verbose_eve
     return model, train_losses, val_accs, best_val_acc
 
 
+# ---- gated variants (for GatedGCN, takes missingness_mask as extra forward arg) ----
+
+def train_one_epoch_gated(model, loader, optimizer, device):
+    model.train()
+    total_loss = 0
+    for batch in loader:
+        batch = batch.to(device)
+        optimizer.zero_grad()
+        out = model(batch.x, batch.edge_index, batch.batch, batch.missingness_mask)
+        loss = F.cross_entropy(out, batch.y)
+        loss.backward()
+        optimizer.step()
+        total_loss += loss.item() * batch.num_graphs
+    return total_loss / len(loader.dataset)
+
+
+@torch.no_grad()
+def predict_gated(model, loader, device):
+    model.eval()
+    all_preds, all_labels = [], []
+    for batch in loader:
+        batch = batch.to(device)
+        out = model(batch.x, batch.edge_index, batch.batch, batch.missingness_mask)
+        preds = out.argmax(dim=1)
+        all_preds.extend(preds.cpu().numpy())
+        all_labels.extend(batch.y.cpu().numpy())
+    return np.array(all_preds), np.array(all_labels)
+
+
+def train_model_gated(model, train_loader, val_loader, epochs, lr, device, verbose_every=10):
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    train_losses = []
+    val_accs = []
+    best_val_acc = 0.0
+    best_state = None
+
+    for epoch in range(1, epochs + 1):
+        loss = train_one_epoch_gated(model, train_loader, optimizer, device)
+        train_losses.append(loss)
+
+        preds, labels = predict_gated(model, val_loader, device)
+        val_acc = accuracy_score(labels, preds)
+        val_accs.append(val_acc)
+
+        if val_acc > best_val_acc:
+            best_val_acc = val_acc
+            best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+
+        if verbose_every and epoch % verbose_every == 0:
+            print(f"  Epoch {epoch:03d} | Loss: {loss:.4f} | Val Acc: {val_acc:.4f}")
+
+    if best_state is not None:
+        model.load_state_dict(best_state)
+        model.to(device)
+
+    return model, train_losses, val_accs, best_val_acc
+
+
 def build_metrics(test_preds, test_labels, class_names, training_config, best_val_acc, train_time):
     # canonical metrics dict, same shape across notebook and script
     report_dict = classification_report(
