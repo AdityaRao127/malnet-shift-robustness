@@ -6,7 +6,7 @@ import json
 import os
 
 import matplotlib
-matplotlib.use("Agg")  # headless backend for colab and ci
+# colab picks its own inline backend, only force Agg if no display is set
 import matplotlib.pyplot as plt
 import numpy as np
 import torch

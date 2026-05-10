@@ -23,13 +23,15 @@ def make_missingness_transform(group_specs, drop_prob=0.5, strategy="zero", seed
                 start, end = group_specs[name]
                 if strategy == "zero":
                     x[:, start:end] = 0.0
+                    mask[i] = 0.0
                 elif strategy == "prune":
-                    # keep structural, zero everything else when any non-structural is missing
+                    # keep structural intact, only zero non-structural groups
+                    # mask reflects what was actually zeroed so gating sees consistent signal
                     if name != "structural":
                         x[:, start:end] = 0.0
+                        mask[i] = 0.0
                 else:
                     raise ValueError(f"unknown strategy: {strategy}")
-                mask[i] = 0.0
 
         data.x = x
         # store as 1xK so pyg batches it correctly to [batch_size, num_groups]

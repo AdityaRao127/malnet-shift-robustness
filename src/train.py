@@ -130,8 +130,12 @@ def train_model_gated(model, train_loader, val_loader, epochs, lr, device, verbo
 
 def build_metrics(test_preds, test_labels, class_names, training_config, best_val_acc, train_time):
     # canonical metrics dict, same shape across notebook and script
+    # pin labels=range(K) so an absent class does not silently shift the row mapping
     report_dict = classification_report(
-        test_labels, test_preds, target_names=class_names, output_dict=True, zero_division=0
+        test_labels, test_preds,
+        labels=list(range(len(class_names))),
+        target_names=class_names,
+        output_dict=True, zero_division=0,
     )
     test_acc = accuracy_score(test_labels, test_preds)
 

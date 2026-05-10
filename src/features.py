@@ -159,7 +159,8 @@ def compute_structural_features(data):
     features[:, 7] = _clustering_coefficient(edge_index, num_nodes)
     features[:, 8] = _pagerank(edge_index, num_nodes)
     features[:, 9] = _bfs_depth_from_root(edge_index, num_nodes)
-    max_d = max(out_deg.max().item(), 1.0)
+    # guard for empty graphs, max() on 0-element tensor crashes
+    max_d = max(out_deg.max().item() if out_deg.numel() > 0 else 0.0, 1.0)
     features[:, 10] = out_deg / max_d
 
     data.x = features
@@ -176,8 +177,11 @@ def _two_step_neighborhood_size(edge_index, num_nodes, max_dense_nodes=4000):
     ).coalesce()
     a_dense = adj.to_dense()
     a_sym = ((a_dense + a_dense.t()) > 0).float()
-    a2 = (a_sym @ a_sym > 0).float()
-    return a2.sum(dim=1) - a_sym.diagonal()
+    # union of direct neighbors and 2-hop neighbors, then zero self
+    a2_bool = (a_sym @ a_sym > 0).float()
+    within_2 = ((a_sym + a2_bool) > 0).float()
+    within_2.fill_diagonal_(0)
+    return within_2.sum(dim=1)
 
 
 def _motif_counts(edge_index, num_nodes, max_dense_nodes=4000):
