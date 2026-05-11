@@ -1,38 +1,57 @@
 # malnet-shift-robustness
 
-Reproducing parts of Tran et al. (https://arxiv.org/abs/2508.06734) and add a change where the model knows which feature groups are missing instead of just zero filling them.
+This project reproduces parts of Tran et al. and extends their approach by allowing the model to explicitly use missing feature information instead of relying only on zero-filled inputs.
 
-Runs on Google Colab Pro with a T4 GPU.
+All experiments were run on Google Colab Pro using a T4 GPU.
 
-## Phase notebooks
+## Overview
 
-Run them in order, cause each phase builds on the previous.
+The goal of this project is to study how graph-based malware classifiers perform under distribution shift. I start with a baseline GCN model and gradually improve the feature representation, then evaluate how each version performs on both standard and shifted data.
 
-- `assignment3_baseline.ipynb`: vanilla GCN with one hot degree features. Got 75.1% on MalNetTiny test. This is the starting point.
-- `phase1_structural.ipynb`: swaps the one hot degree for LDP plus a few extra graph features (clustering, PageRank, BFS depth). Same model, just better inputs.
-- `phase2_enriched.ipynb`: adds more graph derived features on top of phase 1 and randomly drops a chunk of them at train time. Tries two ways of handling the missing chunk (zero fill and prune).
-- `phase3_gating.ipynb`: this is the new bit. The model gets the missingness mask as an extra input and learns to gate the embedding based on what is there.
-- `phase4_shifted.ipynb`: pulls the Common shifted split from HuggingFace and runs all four models on it. Computes the robustness gap.
+The main addition in this project is a gating model that takes a missingness mask as input and learns how to adjust the graph representation based on which features are available.
 
-## How to run on Colab
+## Notebooks
 
-1. Open a notebook.
-2. In the menu pick Runtime, then Change runtime type, then T4 GPU.
-3. Select Run All.
+The notebooks should be run in order since each stage builds on the previous one.
 
-The first cell clones this repo. The pip install cell pins torch-geometric to 2.7.0 to avoid weird API drift. Each notebook writes its outputs to `results/`.
+[assignment3_baseline.ipynb](notebooks/assignment3_baseline.ipynb)
+This is the starting point. It uses a vanilla GCN with one-hot degree features and reaches about 75.1% accuracy on the MalNet-Tiny test set.
 
-## What's in folders
+[phase1_structural.ipynb](notebooks/phase1_structural.ipynb)
+Replaces the one-hot degree input with structural features such as Local Degree Profile, clustering, PageRank, and BFS depth.
 
-- `notebooks/` is where the runnable stuff lives.
-- `src/` has the shared model code, training loop, feature transforms, missingness simulation, HF loader.
-- `scripts/` has a CLI runner and a few small helpers for generating the notebooks.
-- `tests/` has a smoke test for the imports.
+[phase2_enriched.ipynb](notebooks/phase2_enriched.ipynb)
+Adds additional graph-derived features and simulates missingness during training. Two approaches are tested: zero-fill and prune.
 
-## Papers I'm building on
+[phase3_gating.ipynb](notebooks/phase3_gating.ipynb)
+Introduces the gating model. The model receives a missingness mask and learns how to adjust the embedding based on which feature groups are present.
 
-- Tran et al., https://arxiv.org/abs/2508.06734
-- Freitas et al. (MalNet dataset), https://openreview.net/pdf?id=1xDTDk3XPW
-- Kipf and Welling (GCN), https://arxiv.org/abs/1609.02907
-- Cai and Wang (LDP features), https://arxiv.org/abs/2003.00982
-- Tran et al.'s precomputed splits on HuggingFace: https://huggingface.co/datasets/nntvu/MalNet-Tiny-Features
+[phase4_shifted.ipynb](notebooks/phase4_shifted.ipynb)
+Evaluates all models on the MalNet-Tiny-Common shifted split and computes the robustness gap.
+
+## Running the code
+
+Open any notebook in Google Colab.
+Change the runtime to a T4 GPU.
+Run all cells.
+
+The setup installs the required dependencies and clones the repository.
+Results are saved in the results folder.
+
+## Project structure
+
+[notebooks](notebooks/)
+Contains all experiment notebooks.
+
+[src](src/)
+Contains shared code for models, training, feature generation, and missingness simulation.
+
+[scripts](scripts/)
+Contains helper scripts for running experiments and generating notebooks.
+
+[tests](tests/)
+Contains a basic test to verify imports and setup.
+
+## References
+
+See paper.
