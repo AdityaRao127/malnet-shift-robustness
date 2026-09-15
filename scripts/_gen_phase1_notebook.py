@@ -25,7 +25,7 @@ cells = []
 
 cells.append(md("""# Phase 1: Structural baseline
 
-Assignment 3 used one hot degree features and got 75.1%. Here we change those to Local Degree Profile (https://arxiv.org/abs/2003.00982) plus clustering, PageRank, and BFS depth, cause one number per node throws away a lot of info. Same GCN, just better inputs.
+The baseline notebook used one hot degree features and got 75.1%. Here we change those to Local Degree Profile (https://arxiv.org/abs/2003.00982) plus clustering, PageRank, and BFS depth, cause one number per node throws away a lot of info. Same GCN, just better inputs.
 
 11 features per node total:
 - LDP block, 5 dims: degree and min/max/mean/std of neighbor degrees
@@ -170,11 +170,11 @@ print(report)
 test_acc = accuracy_score(test_labels, test_preds)
 print(f"overall test accuracy: {test_acc:.4f}")
 
-# delta vs assignment 3 baseline (one hot degree, 75.1%)
-assn3_acc = 0.7510
-print(f"assignment 3 baseline: {assn3_acc:.4f}")
+# delta vs the one hot degree baseline (75.1%)
+baseline_acc = 0.7510
+print(f"baseline: {baseline_acc:.4f}")
 print(f"this run (structural): {test_acc:.4f}")
-print(f"delta: {test_acc - assn3_acc:+.4f}")
+print(f"delta: {test_acc - baseline_acc:+.4f}")
 """))
 
 cells.append(md("""## 8. Save Results
